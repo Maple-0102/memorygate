@@ -19,7 +19,13 @@ the same unit (test question, correctness averaged over the 3 orders):
 ## How this is read
 The primary verdicts stay those of design_freeze.md (paired z, |z| > 1.96). Holm is reported alongside and can only
 make a claim harder to keep. Results are read by the size of the difference and its interval first; sign agreement over
-3 orders is descriptive only (with 3 orders, all signs agree by chance 1 time in 4).
+3 orders is descriptive only.
 Accuracy on test is not compared with development numbers as a check of "the same result": the final runs learn from
 766 questions instead of 535 and are scored on different questions, so only differences between groups within the final runs
 are interpreted.
+
+## Correction — 2026-11-24, still before any test score was seen
+An earlier version of the paragraph above said that with 3 orders all signs agree by chance 1 time in 4. That figure
+assumes independent orders with equal odds of either sign and no ties; the three orders share the same test questions, so
+it has no basis and is removed. The per-order table only shows how much the difference moves with the task order.
+The launch script scripts/run_final.sh is not in the hashed list of design_freeze.md; it is archived unchanged in commit f53388c.
