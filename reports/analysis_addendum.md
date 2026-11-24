@@ -29,3 +29,16 @@ An earlier version of the paragraph above said that with 3 orders all signs agre
 assumes independent orders with equal odds of either sign and no ties; the three orders share the same test questions, so
 it has no basis and is removed. The per-order table only shows how much the difference moves with the task order.
 The launch script scripts/run_final.sh is not in the hashed list of design_freeze.md; it is archived unchanged in commit f53388c.
+
+## Reading note on gate_accept vs consolidate — 2026-11-24, still before any test score was seen
+Checked on development runs only. gate_accept accepted 12, 11 and 12 of 12 updates, so in orders 0 and 2 it ran the same
+strategy as consolidate. Even so the two runs diverge from the first round: with empty memory, 4 of 45 round-0 learning
+answers already differ (orders 0 and 2; the model is not fully deterministic at temperature 0), no memory text is shared
+after round 0, and at round 12 at most 1 of ~150 texts is shared. In order 2 (all accepted) the dev gap was −4.8 pt.
+So the per-question 95% interval covers which questions were sampled, but not run-to-run variation of the whole pipeline,
+which is of the same size as the observed gap. Consequences for the final report:
+- gate_accept vs consolidate is read together with the number of rejections in each order; in an order with no rejection
+  the difference is an estimate of run-to-run noise, not an effect of the gate;
+- the per-order table is the only view of run-to-run variation and is shown next to the interval;
+- a difference whose interval excludes 0 is still reported as measured, but not attributed to the gate unless
+  rejections occurred and the per-order differences are larger than the spread seen between identical strategies.
