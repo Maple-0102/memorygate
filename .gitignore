@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.env
+# BIRD data and run outputs stay local
+data/raw/
+runs/
+# sealed test split: never commit, never read before the design is final
+data/sealed/

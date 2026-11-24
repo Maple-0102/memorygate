@@ -1,0 +1,62 @@
+# Week-1 feasibility config. Every number marked VERIFY must be checked before a real run.
+
+[model]
+# "vertex"  : Vertex AI, auth via Application Default Credentials, needs GOOGLE_CLOUD_PROJECT
+# "aistudio": Gemini Developer API, needs GEMINI_API_KEY (free tier has daily request caps)
+# Both reach the same Gemini models, so switching backend keeps the experiment's model fixed.
+# "fake"    : offline stub for tests and dry runs
+provider = "vertex"
+# Verified GA on Vertex AI, 2026-11-23.
+name = "gemini-3.5-flash-lite"
+location = "global"
+temperature = 0.0
+max_output_tokens = 1024
+timeout_s = 60          # per request; a hung connection is retried instead of blocking forever
+max_rps = 2.0          # per process; Vertex shared capacity returns 429 above roughly 6 calls/s in total
+# Thinking tokens are billed as output and add run-to-run noise. Keep it off or minimal.
+# Older models take thinking_budget (0 = off); newer ones take thinking_level ("minimal"/"low").
+# Leave both empty to use the model default.
+thinking_budget = 0
+thinking_level = ""
+
+[pricing]
+# USD per 1M tokens, Vertex global endpoint, checked 2026-11-23 on
+# https://cloud.google.com/vertex-ai/generative-ai/pricing
+input = 0.30
+cached_input = 0.03
+output = 2.50
+
+[budget]
+# Hard stop for one invocation of `memorygate run`. Protects the trial credit.
+max_calls = 2000
+max_usd = 3.0
+
+[data]
+bird_dir = "data/raw/bird_dev"   # contains dev.json and dev_databases/
+split_dir = "data/splits"
+sealed_dir = "data/sealed"
+seed = 20261123
+ratios = { learn = 0.5, val = 0.2, test = 0.3 }
+
+[exec]
+timeout_s = 30
+max_rows = 100000
+
+[rounds]
+# Round-based experiment (weeks 2-4). Development mode streams 70% of learn and evaluates on the other 30%.
+n_rounds = 12
+dev_eval_frac = 0.3
+dev_eval_seed = 7
+eval_every = 2           # evaluate on the evaluation set every N rounds (and on the last round)
+k = 5                    # max memories per question, same for every group
+char_budget = 1500       # max memory characters per question, same for every group
+# consolidation
+distill_max_items = 15   # failed trajectories per db per round shown to the distiller
+distill_max_lessons = 5
+cap_per_db = 25
+cap_global = 10
+prune_min_uses = 6
+prune_loss_ratio = 2.0   # retire if losses > ratio * wins after >= prune_min_uses uses
+# gate
+gate_z = 1.645           # one-sided 5%
+max_usd_per_group = 20.0 # hard cap for one group run
