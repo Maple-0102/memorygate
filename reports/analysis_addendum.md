@@ -42,3 +42,7 @@ which is of the same size as the observed gap. Consequences for the final report
 - the per-order table is the only view of run-to-run variation and is shown next to the interval;
 - a difference whose interval excludes 0 is still reported as measured, but not attributed to the gate unless
   rejections occurred and the per-order differences are larger than the spread seen between identical strategies.
+
+## Note on commit IDs — 2026-11-25
+The repository history was rewritten once to normalise the author and remove co-author trailers; file contents and
+dates are unchanged. The freeze commit called f53388c above is now 1ec8ccd (tag `design-freeze`).
