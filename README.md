@@ -7,8 +7,13 @@ questions from the [BIRD](https://bird-bench.github.io/) benchmark over 12 learn
 each round it updates its memory. Five memory strategies are compared, including two that put every
 memory update through a statistical regression gate before it takes effect.
 
+**Answer.** Retrieving past questions with their correct SQL raised held-out execution accuracy from 44.3% to
+57.2%. The default-accept gate showed no measurable accuracy gain over ungated consolidation and cost 6.3× as much
+in strategy API spend. In a separate development-stage stress test, it blocked 9 of 17 harmful updates.
+
 The design was frozen (commit [`1ec8ccd`](https://github.com/Maple-0102/memorygate/commit/1ec8ccd),
-tag `design-freeze`) before the held-out test split was opened, and the test split was evaluated once.
+tag `design-freeze`) before the held-out test split was opened. The final runs were done once and evaluated on the
+test split after rounds 4, 8 and 12, with round 12 specified in advance as the primary comparison.
 
 Full report (Chinese, 6 pages): [`reports/MemoryGate_report_zh.pdf`](reports/MemoryGate_report_zh.pdf)
 
@@ -39,6 +44,9 @@ averaging over the three orders. Δ is in percentage points.
 | Gate (accept) vs. rules | −1.5 | −3.3 to +0.2 | 0.089 | −1.3 / −2.2 / −1.1 |
 | Gate (reject) vs. rules | −3.0 | −5.0 to −0.9 | 0.013 | −0.2 / −4.6 / −4.1 |
 
+The 95% intervals reflect variation across questions for these completed runs. The per-order column shows how
+the observed differences varied across the three task orders.
+
 What this shows:
 
 - **Memory helps.** Every memory strategy beats no memory.
@@ -51,7 +59,7 @@ What this shows:
 
 These used development data only. The test split stayed sealed throughout.
 
-- **Week 1: past experience transfers.** On the validation split, retrieving relevant past questions with their correct SQL raised accuracy from 42.7% to 57.0%. Random past questions from the same database added only 3.9 pp. Run-to-run noise: 2.9% of answers flip between identical runs.
+- **Week 1: past experience transfers.** On the validation split, retrieving relevant past questions with their correct SQL raised accuracy from 42.7% to 57.0%. Random past questions from the same database added only 3.9 pp. Run-to-run noise: 2.9% of questions switched between correct and incorrect across two identical-prompt runs.
 - **No natural update was measurably harmful.** Under the pre-set test, 108 natural updates were labelled on a separate evaluation set and none was significantly harmful. The default-reject gate also blocked 6 of the 8 updates that were labelled beneficial.
 - **Injected-error stress test.** 72 corrupted versions were built by rewriting 25% or 50% of each natural update's rules into plausible but wrong ones (wrong column, inverted condition, wrong unit or code). 17 of them were labelled harmful. The default-accept gate blocked 9 and let 8 through. The default-reject gate blocked all 17, at the cost of blocking almost all normal updates too.
 
