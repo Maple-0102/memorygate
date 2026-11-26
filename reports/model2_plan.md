@@ -34,8 +34,9 @@ Identical to the week-1 check (`scripts/run_week1.sh`, `reports/week1.md`) excep
 ## Procedure and stop rules
 
 - Pilot first: 10 val questions per condition, to confirm the model ID returned, thinking tokens,
-  success rate, tokens and latency, and to re-estimate the full cost. Pilot runs are kept in
-  `runs/m2_pilot_*` and not analysed.
+  success rate, tokens and latency, and to re-estimate the full cost. Pilot runs were not analysed.
+  (Correction, 2026-11-27: the pilot folders `runs/m2_pilot_*` were deleted after the full runs, before the
+  backup; they held 30 calls, about $0.13, not included in the reported cost.)
 - Only the remaining Google Cloud trial credit is used. If the console asks to upgrade to a paid account,
   or the credit runs out, the runs stop and whatever finished is reported as incomplete.
 - Each run has a hard cap of $8 (estimated at the standard rate).
