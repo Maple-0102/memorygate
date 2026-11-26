@@ -63,6 +63,18 @@ These used development data only. The test split stayed sealed throughout.
 - **No natural update was measurably harmful.** Under the pre-set test, 108 natural updates were labelled on a separate evaluation set and none was significantly harmful. The default-reject gate also blocked 6 of the 8 updates that were labelled beneficial.
 - **Injected-error stress test.** 72 corrupted versions were built by rewriting 25% or 50% of each natural update's rules into plausible but wrong ones (wrong column, inverted condition, wrong unit or code). 17 of them were labelled harmful. The default-accept gate blocked 9 and let 8 through. The default-reject gate blocked all 17, at the cost of blocking almost all normal updates too.
 
+## Follow-up experiments (exploratory, development data)
+
+Run on 2026-11-27 after the final evaluation, with plans written before the runs; the sealed test split was not
+used. Details: [`reports/followups.md`](reports/followups.md).
+
+- **Second model.** On `gemini-3.8-flash` (thinking "low"), retrieving 3 relevant past questions with their
+  correct SQL raised validation accuracy from 47.4% to 54.2% (+6.8 pp, 95% CI +2.4 to +11.2). Relevant
+  questions beat the same number of random same-database questions by 9.4 pp (+5.2 to +13.7), close to the
+  10.4 pp seen on `gemini-3.5-flash-lite`; random same-database questions alone gave no gain.
+- **Mixed memory.** Replacing about one raw example with about 1.4 distilled rules, at the same budget, did not
+  help: −0.8 pp vs raw experience alone (−2.3 to +0.7) on 539 development questions, averaged over three orders.
+
 ## How it works
 
 - **Data.** BIRD dev has 1,534 questions over 11 SQLite databases. It is split per database with a fixed seed into learn (766), validation (308) and test (460). The test ids are stored separately with a recorded hash and cannot be loaded without an explicit `unseal=True`.
@@ -91,7 +103,7 @@ Commit history note: on 2026-11-25 the history was rewritten once to normalise t
 
 ```bash
 uv sync
-uv run pytest -q          # 45 offline tests (fake model)
+uv run pytest -q          # 47 offline tests (fake model)
 ```
 
 **Data.** Download BIRD dev from https://bird-bench.github.io/ and place it as
@@ -111,6 +123,8 @@ seed in the config; the sealed test ids are checked against the hash in `data/sp
 | `scripts/run_labels.sh` | post-hoc labels for every update | $8 |
 | `scripts/run_inject.sh` | injected-error stress test | $21 |
 | `scripts/run_final.sh` | final runs on the sealed test split | $41 |
+| `scripts/run_model2.sh` | second-model replication of the week-1 check | $9 |
+| `python -m memorygate.mixed run` | mixed-memory comparison | $3 |
 
 Reports can be regenerated from saved runs without model calls:
 `memorygate rounds-report`, `final-report`, `inject-report`, and `python -m memorygate.final_stats`.
@@ -127,6 +141,7 @@ Code layout (`src/memorygate/`):
 | `posthoc.py` | independent labels, primary report |
 | `harm.py` | injection |
 | `final_stats.py` | supplementary statistics |
+| `model2_stats.py`, `mixed.py` | follow-up experiments |
 | `splits.py` | sealed split |
 | `grader.py`, `sqlexec.py` | execution grading |
 | `llm.py` | model adapter and cost meter |

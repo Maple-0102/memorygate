@@ -1,0 +1,203 @@
+"""Mixed memory: raw past questions + distilled rules at the same budget (exploratory; see reports/mixed_plan.md).
+
+Uses fixed snapshots after the 12th development round (round_11) of runs/o{o}_raw and runs/o{o}_consolidate.
+Conditions, all re-run in one batch:
+  raw   : raw retrieval, k = 5, char budget 1,500 (as in the round loop)
+  rules : rule retrieval, k = 5, char budget 1,500 (as in the round loop)
+  mixed : up to 3 raw items, then up to 2 rules that fit in the characters left; no back-filling
+Questions: the development evaluation set (231) and the validation split (308).
+
+Usage:
+  python -m memorygate.mixed check [--n 40]                  # items/characters per condition, no model calls
+  python -m memorygate.mixed run [--orders 0,1,2] [--limit N] [--out runs/mixed] [--workers 8]
+  python -m memorygate.mixed report [--out runs/mixed] [--md reports/mixed.md]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from math import erfc, sqrt
+from pathlib import Path
+
+from .config import load_config
+from .data import Task
+from .llm import make_client
+from .memstore import MemoryStore
+from .rounds import RawMemory, dev_streams
+from .runner import load_traj, run_condition
+
+CONDS = ("raw", "rules", "mixed")
+SETS = ("deveval", "val")
+N_RAW, N_RULES = 3, 2
+
+
+def load_snapshots(order: int, runs: Path = Path("runs")) -> tuple[RawMemory, MemoryStore]:
+    raw = RawMemory.from_json(json.loads((runs / f"o{order}_raw/round_11/memory.json").read_text()))
+    rules = MemoryStore.load(runs / f"o{order}_consolidate/round_11/memory.json")
+    return raw, rules
+
+
+def retriever(cond: str, raw: RawMemory, rules: MemoryStore, k: int, budget: int):
+    if cond == "raw":
+        return lambda t: raw.retrieve(t, k, budget)
+    if cond == "rules":
+        return lambda t: rules.retrieve(t, k, budget)
+
+    def mixed(t: Task) -> list:
+        items = raw.retrieve(t, N_RAW, budget)
+        left = budget - sum(len(i.render()) for i in items)
+        # rule candidates in retrieval order; a rule is added only if it fits in the characters left
+        added = []
+        for e in rules.retrieve(t, k * 3, 10 ** 9):
+            if len(added) >= N_RULES:
+                break
+            n = len(e.render())
+            if n <= left:
+                added.append(e)
+                left -= n
+        return items + added
+
+    return mixed
+
+
+def question_sets(cfg: dict) -> dict[str, list[Task]]:
+    _, ev, val, _ = dev_streams(cfg)
+    return {"deveval": ev, "val": val}
+
+
+def check(cfg: dict, n: int) -> None:
+    k, budget = cfg["rounds"]["k"], cfg["rounds"]["char_budget"]
+    sets = question_sets(cfg)
+    qs = sets["deveval"][: n // 2] + sets["val"][: n - n // 2]
+    for o in (0, 1, 2):
+        raw, rules = load_snapshots(o)
+        for c in CONDS:
+            f = retriever(c, raw, rules, k, budget)
+            got = [f(t) for t in qs]
+            n_items = [len(g) for g in got]
+            chars = [sum(len(i.render()) for i in g) for g in got]
+            n_rules = [sum(1 for i in g if hasattr(i, "scope")) for g in got]
+            print(f"o{o} {c:5s} items {sum(n_items)/len(qs):.2f} (rules {sum(n_rules)/len(qs):.2f}) "
+                  f"chars mean {sum(chars)/len(qs):.0f} max {max(chars)}")
+
+
+def run(cfg: dict, orders: list[int], limit: int, out: Path, workers: int) -> None:
+    k, budget, bird = cfg["rounds"]["k"], cfg["rounds"]["char_budget"], cfg["data"]["bird_dir"]
+    sets = question_sets(cfg)
+    for o in orders:
+        raw, rules = load_snapshots(o)
+        for c in CONDS:
+            d = out / f"o{o}_{c}"
+            meter = make_client(cfg, log_path=d / "usage.jsonl")
+            for s in SETS:
+                tasks = sets[s][:limit] if limit else sets[s]
+                summ = run_condition(tasks, f"mixed_exp:{c}", meter, bird, d / s, cfg.get("exec"),
+                                     meta={"order": o, "cond": c, "set": s, "model": cfg["model"]["name"]},
+                                     retrieve=retriever(c, raw, rules, k, budget), workers=workers)
+                print(f"o{o} {c} {s}: n={summ.get('n_graded')} acc={summ.get('accuracy')} stopped={summ.get('stopped')}")
+
+
+def _stats(d: list[float]) -> dict:
+    n = len(d)
+    m = sum(d) / n
+    se = sqrt(sum((x - m) ** 2 for x in d) / (n - 1) / n)
+    z = m / se if se else 0.0
+    return {"n": n, "diff": m, "lo": m - 1.96 * se, "hi": m + 1.96 * se, "p": erfc(abs(z) / sqrt(2))}
+
+
+def _load(out: Path, o: int, c: str, s: str) -> dict[str, dict]:
+    p = out / f"o{o}_{c}" / s
+    return {r["qid"]: r for r in load_traj(p) if not r["gold_error"]} if (p / "trajectories.jsonl").exists() else {}
+
+
+def report(out: Path) -> str:
+    orders = [o for o in (0, 1, 2) if all((out / f"o{o}_{c}").exists() for c in CONDS)]
+    R = {(o, c, s): _load(out, o, c, s) for o in orders for c in CONDS for s in SETS}
+    lines = ["# Mixed memory: raw past questions + distilled rules\n",
+             "Generated by `python -m memorygate.mixed report`. Exploratory, development data only; plan in "
+             "`mixed_plan.md`, written before the runs. Fixed memory snapshots after round 12 of the development "
+             f"runs; orders used: {', '.join(f'o{o}' for o in orders)}. Correctness is averaged over orders per question.\n"]
+
+    def shared(sets):
+        out_ids = set()
+        for s in sets:
+            ids = set.intersection(*[set(R[(o, c, s)]) for o in orders for c in CONDS])
+            out_ids |= {(s, q) for q in ids}
+        return out_ids
+
+    def mean_acc(c, ids):
+        return sum(R[(o, c, s)][q]["correct"] for (s, q) in ids for o in orders) / (len(ids) * len(orders))
+
+    def diff(a, b, ids, ords=None):
+        ords = ords or orders
+        d = [sum(int(R[(o, a, s)][q]["correct"]) - int(R[(o, b, s)][q]["correct"]) for o in ords) / len(ords)
+             for (s, q) in sorted(ids)]
+        return _stats(d)
+
+    def fmt(st):
+        p = "<0.001" if st["p"] < 0.001 else f"{st['p']:.3f}"
+        return f"{100*st['diff']:+.1f} | {100*st['lo']:+.1f} to {100*st['hi']:+.1f} | {p}"
+
+    if not orders:
+        return "\n".join(lines + ["No complete runs."])
+    scopes = {"All (dev eval + val)": SETS, "Dev eval only": ("deveval",), "Val only": ("val",)}
+    lines.append("## Accuracy\n")
+    lines.append("| Questions | n | raw | rules | mixed |")
+    lines.append("|---|---|---|---|---|")
+    for name, ss in scopes.items():
+        ids = shared(ss)
+        lines.append(f"| {name} | {len(ids)} | " + " | ".join(f"{mean_acc(c, ids):.1%}" for c in CONDS) + " |")
+    lines.append("\n## Paired differences (pp, averaged over orders)\n")
+    lines.append("| Comparison | Questions | Δ | 95% CI | p |")
+    lines.append("|---|---|---|---|---|")
+    for a, b, lab in (("mixed", "raw", "Mixed vs raw (primary)"), ("mixed", "rules", "Mixed vs rules"),
+                      ("raw", "rules", "Raw vs rules")):
+        for name, ss in scopes.items():
+            lines.append(f"| {lab} | {name} | {fmt(diff(a, b, shared(ss)))} |")
+    lines.append("\n## Mixed vs raw in each order (all questions)\n")
+    lines.append("| Order | Δ | 95% CI | p | fixed / broken |")
+    lines.append("|---|---|---|---|---|")
+    ids = shared(SETS)
+    for o in orders:
+        st = diff("mixed", "raw", ids, [o])
+        fx = sum(1 for (s, q) in ids if R[(o, "mixed", s)][q]["correct"] and not R[(o, "raw", s)][q]["correct"])
+        br = sum(1 for (s, q) in ids if not R[(o, "mixed", s)][q]["correct"] and R[(o, "raw", s)][q]["correct"])
+        lines.append(f"| o{o} | {fmt(st)} | {fx} / {br} |")
+    lines.append("\n## What each condition sent (mean per question)\n")
+    lines.append("| Condition | items | characters |")
+    lines.append("|---|---|---|")
+    for c in CONDS:
+        recs = [R[(o, c, s)][q] for (s, q) in ids for o in orders]
+        lines.append(f"| {c} | {sum(len(r['hints']) for r in recs)/len(recs):.2f} | "
+                     f"{sum(sum(len(h) for h in r['hints']) for r in recs)/len(recs):.0f} |")
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(prog="memorygate.mixed")
+    p.add_argument("-c", "--config", default="configs/week1.toml")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    ch = sub.add_parser("check")
+    ch.add_argument("--n", type=int, default=40)
+    r = sub.add_parser("run")
+    r.add_argument("--orders", default="0,1,2")
+    r.add_argument("--limit", type=int, default=0)
+    r.add_argument("--out", default="runs/mixed")
+    r.add_argument("--workers", type=int, default=8)
+    rp = sub.add_parser("report")
+    rp.add_argument("--out", default="runs/mixed")
+    rp.add_argument("--md", default="reports/mixed.md")
+    a = p.parse_args()
+    cfg = load_config(a.config)
+    if a.cmd == "check":
+        check(cfg, a.n)
+    elif a.cmd == "run":
+        run(cfg, [int(x) for x in a.orders.split(",")], a.limit, Path(a.out), a.workers)
+    else:
+        text = report(Path(a.out))
+        Path(a.md).write_text(text)
+        print(text)
+
+
+if __name__ == "__main__":
+    main()
