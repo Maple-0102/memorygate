@@ -56,3 +56,8 @@ past-question examples for distilled rules beat raw experience alone?
   Raw alone sends 3.75–3.85 items (about 1,410 characters); rules alone 4.8 items (770–910 characters).
   So in practice mixed trades about one raw example for 1.4 rules. This follows the rule fixed above
   (no back-filling) and is not changed.
+
+## Note added after the runs
+
+- The 10-question pilot folder (`runs/mixed_pilot`, 30 calls, about $0.02 estimated) was deleted before the backup;
+  it was not analysed and is not in the reported cost.

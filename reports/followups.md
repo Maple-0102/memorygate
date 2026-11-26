@@ -30,7 +30,8 @@ Each model's numbers use the questions gradable in all three of its runs: 308 fo
 - The gain over no memory was smaller on 3.8 Flash (+6.8 vs +14.3) but the two configurations differ in both
   model and thinking setting, and this was not tested as a difference; it is reported only as different
   observed gains.
-- Cost: 1,690 calls, about $8.5 at the standard rate (thinking tokens at "low" averaged about 400 per call).
+- Cost of the full runs: 1,690 calls, about $8.5 at the standard rate (thinking tokens at "low" averaged about 400
+  per call). A 30-call pilot (about $0.13, estimated) is not included; its folder was not kept.
 
 ## 2. Mixed memory with a fixed split did not beat raw experience
 
@@ -60,7 +61,8 @@ and 1,403 characters, rules 4.62 items and 815 characters. All three conditions 
     removed examples and added rules do not mention.
 - Rerunning the raw and rules groups also shows run-to-run variation: on the development evaluation set they
   scored 60.9% and 56.0% here versus 59.7% and 57.9% in the original round-12 evaluations, with the same hints.
-- Cost: 4,851 calls, about $2.8.
+- Cost of the full runs: 4,851 calls, about $2.8. A 30-call pilot (about $0.02, estimated) is not included; its folder
+  was not kept.
 
 ## Reading
 
@@ -68,3 +70,6 @@ and 1,403 characters, rules 4.62 items and 815 characters. All three conditions 
   relevance (not just same-database context) accounts for the gain on both models.
 - At this budget and this fixed split (3 raw + up to 2 rules), mixing did not beat raw retrieval, so the simpler raw
   retrieval stays the choice. Other splits or choosing rules per question were not tested.
+
+Cost: the main experiment's API spend was about $115. The full runs of the two follow-up experiments came to about
+$11.4 together; the two pilots add an estimated $0.15.
