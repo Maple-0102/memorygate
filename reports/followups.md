@@ -14,13 +14,14 @@ call returned `model_version = gemini-3.8-flash`). Week 1 used `gemini-3.5-flash
 | | 3.5 Flash-Lite (week 1) | 3.8 Flash |
 |---|---|---|
 | No memory | 42.7% | 47.4% |
-| Random same-db past questions | 46.8% | 44.8% |
+| Random same-db past questions | 46.6% | 44.8% |
 | Relevant past questions | 57.0% | 54.2% |
 | Relevant vs. no memory | +14.3 (95% CI +9.6 to +19.1) | **+6.8 (+2.4 to +11.2)** |
 | Relevant vs. random | +10.4 (+6.0 to +14.9) | **+9.4 (+5.2 to +13.7)** |
 | Random vs. no memory | +3.9 (+0.7 to +7.1) | −2.6 (−5.7 to +0.5) |
 
-308 gradable questions for 3.8 Flash (307–308 in week 1; one reference query timed out in one week-1 run).
+Each model's numbers use the questions gradable in all three of its runs: 308 for 3.8 Flash, 307 for week 1
+(one reference query timed out in one week-1 run).
 
 - Retrieval still helps on the second model: +6.8 pp over no memory, interval excludes 0.
 - Choosing relevant past questions matters on both models: about +9 to +10 pp over the same number of random
@@ -31,7 +32,7 @@ call returned `model_version = gemini-3.8-flash`). Week 1 used `gemini-3.5-flash
   observed gains.
 - Cost: 1,690 calls, about $8.5 at the standard rate (thinking tokens at "low" averaged about 400 per call).
 
-## 2. Mixed memory: raw past questions + distilled rules at the same budget
+## 2. Mixed memory with a fixed split did not beat raw experience
 
 Fixed memory snapshots after round 12 of the development runs (three task orders). Mixed = up to 3 raw items,
 then up to 2 rules that fit in the remaining characters (k ≤ 5, 1,500 characters for every condition).
@@ -65,4 +66,5 @@ and 1,403 characters, rules 4.62 items and 815 characters. All three conditions 
 
 - The main finding, that retrieving relevant past questions with correct SQL helps, held on a second model, and
   relevance (not just same-database context) accounts for the gain on both models.
-- At this budget, trading raw examples for distilled rules did not help.
+- At this budget and this fixed split (3 raw + up to 2 rules), mixing did not beat raw retrieval, so the simpler raw
+  retrieval stays the choice. Other splits or choosing rules per question were not tested.

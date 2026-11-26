@@ -72,8 +72,8 @@ used. Details: [`reports/followups.md`](reports/followups.md).
   correct SQL raised validation accuracy from 47.4% to 54.2% (+6.8 pp, 95% CI +2.4 to +11.2). Relevant
   questions beat the same number of random same-database questions by 9.4 pp (+5.2 to +13.7), close to the
   10.4 pp seen on `gemini-3.5-flash-lite`; random same-database questions alone gave no gain.
-- **Mixed memory.** Replacing about one raw example with about 1.4 distilled rules, at the same budget, did not
-  help: −0.8 pp vs raw experience alone (−2.3 to +0.7) on 539 development questions, averaged over three orders.
+- **Mixed memory, fixed split.** Replacing about one raw example with about 1.4 distilled rules (3 raw + up to 2
+  rules, same budget) did not help: −0.8 pp vs raw experience alone (−2.3 to +0.7) on 539 development questions, averaged over three orders.
 
 ## How it works
 
